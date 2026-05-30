@@ -16,7 +16,7 @@ testlist.tcl
   
   Usage:
     Open Vivado and execute:
-      source {<full_path_to_directory>\testlist.tcl}
+      source {<full_path_to_directory>\scripts\testlist.tcl}
 
     Generated files:
       regression_logs/ – simulation logs for each test and seed.
@@ -46,8 +46,11 @@ merge_cov.py
   The script also prints uncovered bins in the terminal.
 
 Typical Workflow:
+  Create a project in Vivado in Smart_Lamp_Controller directory. It is recommended to keep the default name "project_1"
+  Run a Simulation to create the xsim directory, then close the simulation
   Run the regression from Vivado:
-    source {<full_path_to_directory>\testlist.tcl}
+    cd {<full_path_to_directory>\project_1\project_1.sim\sim_1\behav\xsim}
+    source {<full_path_to_directory>\scripts\testlist.tcl}
   Wait for all tests and coverage reports to be generated.
   Open a terminal in this directory and execute:
     python merge_cov.py

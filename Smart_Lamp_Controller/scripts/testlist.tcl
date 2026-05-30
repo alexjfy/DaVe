@@ -7,8 +7,6 @@ set tests {
   long_push_button_test
 }
 
-  cd {..\smart_lamp_controller.sim\sim_1\behav\xsim}
-
   set log_dir "../regression_logs"
   set coverage_dir "../regression_coverage"
   file delete -force $log_dir $coverage_dir
