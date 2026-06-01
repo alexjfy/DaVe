@@ -4,8 +4,8 @@ from collections import defaultdict
 from bs4 import BeautifulSoup
 from itertools import product
 
-coverage_root = "../smart_lamp_controller.sim/sim_1/behav/regression_coverage"
-output_file = "../smart_lamp_controller.sim/sim_1/behav/regression_coverage/merged_cov.csv"
+coverage_root = "../project_1/project_1.sim/sim_1/behav/regression_coverage"
+output_file = "../project_1/project_1.sim/sim_1/behav/regression_coverage/merged_cov.csv"
 
 hits = defaultdict(int)
 
@@ -19,8 +19,14 @@ def split_cross_value(value):
     return parts if parts else [value]
 
 for root, _, files in os.walk(coverage_root):
+    if ".reportStyles" in root:
+        continue
+    
     for file in files:
         if not file.endswith(".html"):
+            continue
+
+        if not file.startswith("grp"):
             continue
 
         path = os.path.join(root, file)
