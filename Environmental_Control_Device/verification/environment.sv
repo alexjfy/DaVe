@@ -1,5 +1,5 @@
-`ifndef __verification_environment
-`define __verification_environment
+`ifndef __environment
+`define __environment
 
 // typedef class scoreboard;
 `include "sensor/sensor_agent.sv"

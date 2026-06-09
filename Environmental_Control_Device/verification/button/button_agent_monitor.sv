@@ -24,7 +24,7 @@ class button_agent_monitor extends uvm_monitor;
   virtual function void build_phase(uvm_phase phase);
     super.build_phase(phase);
     if (!uvm_config_db#(virtual button_interface)::get(this, "", "button_interface", button_vif))
-      `uvm_fatal("BUTTON_MONITOR_AGENT", {"Virtual interface must be set for: ",get_full_name(),".button_monitor_if"})
+      `uvm_fatal("BUTTON_AGENT_MONITOR", {"Virtual interface must be set for: ",get_full_name(),".button_vif"})
   endfunction
         
   virtual function void connect_phase (uvm_phase phase);

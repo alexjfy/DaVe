@@ -42,7 +42,6 @@ module top();
   assign temperature = intf_sensor.temperature_i;
   assign humidity    = intf_sensor.humidity_i;
                               
-  
   button_interface intf_button();
   assign intf_button.clk_i   = clk;
   assign intf_button.reset_i = reset_i;
