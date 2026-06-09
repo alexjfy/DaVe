@@ -8,6 +8,7 @@ coverage_root = "../project_1/project_1.sim/sim_1/behav/regression_coverage"
 output_file = "../project_1/project_1.sim/sim_1/behav/regression_coverage/merged_cov.csv"
 
 hits = defaultdict(int)
+covergroup_bins = defaultdict(set)
 
 def split_cross_value(value):
     value = value.strip()
@@ -18,10 +19,19 @@ def split_cross_value(value):
     parts = [v.strip() for v in value.split(",") if v.strip()]
     return parts if parts else [value]
 
+def get_covergroup_name(cp_div):
+    text = cp_div.find_previous("button", class_="collapsible").get_text(" ", strip=True)
+    cg_name = text.replace("Group -", "").strip()
+
+    if "::" in cg_name:
+        cg_name = cg_name.split("::")[-1].strip()
+
+    return cg_name
+
 for root, _, files in os.walk(coverage_root):
     if ".reportStyles" in root:
         continue
-    
+
     for file in files:
         if not file.endswith(".html"):
             continue
@@ -30,7 +40,7 @@ for root, _, files in os.walk(coverage_root):
             continue
 
         path = os.path.join(root, file)
-        
+
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             soup = BeautifulSoup(f.read(), "html.parser")
 
@@ -39,12 +49,16 @@ for root, _, files in os.walk(coverage_root):
             if not title:
                 continue
 
+            covergroup = get_covergroup_name(cp)
             coverpoint = title.get_text(strip=True).replace("Summary of Cover Point -", "").strip()
 
-            for bin_div in cp.find_all("div", class_=lambda cls: cls and any("bintablecontent" in c for c in cls.split())):
+            for bin_div in cp.find_all(
+                "div",
+                class_=lambda cls: cls and any("bintablecontent" in c for c in cls.split())
+            ):
                 table = bin_div.find("table")
                 if not table:
-                     continue
+                    continue
 
                 rows = table.find_all("tr")
 
@@ -54,7 +68,6 @@ for root, _, files in os.walk(coverage_root):
                     # CROSS
                     if "crosstable" in table.get("class", []):
                         if len(cols) >= 4 and cols[-2].isdigit():
-
                             cross_values = cols[:-2]
                             hit_count = int(cols[-2])
 
@@ -62,18 +75,25 @@ for root, _, files in os.walk(coverage_root):
 
                             for combination in product(*split_values):
                                 bin_name = " x ".join(combination)
+
                                 if "*" in bin_name:
                                     continue
-                                hits[f"{coverpoint}.{bin_name}"] += hit_count
 
-                    # COVERPOINT NORMAL
+                                full_bin_name = f"{covergroup}.{coverpoint}.{bin_name}"
+
+                                hits[full_bin_name] += hit_count
+                                covergroup_bins[covergroup].add(full_bin_name)
+
+                    # NORMAL COVERPOINT
                     else:
                         if len(cols) >= 2 and cols[1].isdigit():
-
                             bin_name = cols[0].strip()
                             hit_count = int(cols[1].strip())
 
-                            hits[f"{coverpoint}.{bin_name}"] += hit_count
+                            full_bin_name = f"{covergroup}.{coverpoint}.{bin_name}"
+
+                            hits[full_bin_name] += hit_count
+                            covergroup_bins[covergroup].add(full_bin_name)
 
 if os.path.exists(output_file):
     os.remove(output_file)
@@ -86,9 +106,29 @@ with open(output_file, "w", newline="", encoding="utf-8") as f:
         status = "HIT" if total > 0 else "MISS"
         writer.writerow([bin_name, total, status])
 
-misses = [b for b, h in hits.items() if h == 0]
-
 print(f"Result saved in: {output_file}")
+
+print("\nCOVERGROUP COVERAGE:")
+
+total_bins = 0
+total_hit_bins = 0
+
+for covergroup, bins in sorted(covergroup_bins.items()):
+    bins_count = len(bins)
+    hit_bins = sum(1 for b in bins if hits[b] > 0)
+
+    coverage = 100.0 * hit_bins / bins_count if bins_count else 0.0
+
+    total_bins += bins_count
+    total_hit_bins += hit_bins
+
+    print(f"  {covergroup}: {coverage:.2f}% ({hit_bins}/{bins_count})")
+
+total_coverage = 100.0 * total_hit_bins / total_bins if total_bins else 0.0
+
+print(f"\nTOTAL COVERAGE: {total_coverage:.2f}% ({total_hit_bins}/{total_bins})")
+
+misses = [b for b, h in hits.items() if h == 0]
 
 if misses:
     print("\nUNCOVERED BINS:")
