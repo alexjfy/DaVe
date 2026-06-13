@@ -1,0 +1,88 @@
+// Module name: apb_driver
+// HDL        : UVM
+// Description: Drives APB master transactions on vif_apb based on apb_item
+//              objects received from the sequencer. Waits for the initial
+//              reset release before entering the main service loop, then
+//              performs read or write based on pwrite, honouring the
+//              delay_psel idle time between transactions.
+class apb_driver extends uvm_driver #(apb_item, apb_item);
+
+  `uvm_component_utils(apb_driver)
+  function new(string name, uvm_component parent);
+    super.new (name, parent);
+  endfunction
+
+  virtual apb_interface vif_apb;
+  apb_item data_project;
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    if(!uvm_config_db #(virtual apb_interface) :: get ( this, "", "vif_apb", vif_apb)) begin
+      `uvm_fatal (get_type_name (), "Didn't get handle to virtual interface")
+  end
+  endfunction
+
+  virtual task run_phase(uvm_phase phase);
+  `uvm_info (get_type_name(), $sformatf ("APB DRIVER START"), UVM_NONE)
+    zero();
+  `uvm_info (get_type_name(), $sformatf ("APB DRIVER START all in 0"), UVM_NONE)
+    @(vif_apb.cb_master_apb);
+  `uvm_info (get_type_name(), $sformatf ("APB DRIVER START after wait"), UVM_NONE)
+    @(posedge vif_apb.state);
+    @(negedge vif_apb.reset_n);
+  `uvm_info (get_type_name(), $sformatf ("APB DRIVER START after reset"), UVM_NONE)
+    @(posedge vif_apb.reset_n);
+      `uvm_info (get_type_name(), $sformatf ("APB DRIVER START after reset 1"), UVM_NONE)
+	  forever begin    
+    	seq_item_port.get_next_item(req);
+      $cast (data_project, req.clone());
+      data_project.set_id_info(req);
+      `uvm_info (get_type_name(), $sformatf ("APB DRIVER START start seq"), UVM_NONE)
+    	repeat(data_project.delay_psel) @(vif_apb.cb_master_apb);   
+    	case (data_project.pwrite)
+        1'b0:read(data_project);
+        1'b1:write(data_project);
+      endcase
+
+	    seq_item_port.item_done();
+      seq_item_port.put_response(data_project);
+      `uvm_info (get_type_name(), $sformatf ("Data was received in APB_DRIVER"), UVM_NONE)
+      $display("%s" , data_project.sprint());
+	  end
+    
+  endtask
+
+  virtual task zero ();
+    vif_apb.cb_master_apb.psel 			                        <=0;
+    vif_apb.cb_master_apb.pwrite                            <=0;
+    vif_apb.cb_master_apb.penable                           <=0;
+    vif_apb.cb_master_apb.paddr                             <=0;
+    vif_apb.cb_master_apb.pwdata                            <=0;
+  endtask
+
+  virtual task write( apb_item data_project);
+    vif_apb.cb_master_apb.psel 			                        <=  1;
+    vif_apb.cb_master_apb.pwrite                            <=  data_project.pwrite;  
+    vif_apb.cb_master_apb.pwdata 		                        <=  data_project.pwdata;
+    vif_apb.cb_master_apb.paddr 		                        <=  data_project.paddr;
+    @(vif_apb.cb_master_apb);                       
+  	vif_apb.cb_master_apb.penable 	                        <=  1;
+    @(vif_apb.cb_master_apb iff vif_apb.cb_master_apb.pready);
+    vif_apb.cb_master_apb.penable 	                        <=  0;
+    vif_apb.cb_master_apb.psel 			                        <=  0;    
+  endtask
+
+  virtual task read(inout apb_item data_project);
+    vif_apb.cb_master_apb.psel 			                        <=  1;
+    vif_apb.cb_master_apb.pwrite                            <=  data_project.pwrite;
+    vif_apb.cb_master_apb.paddr 		                        <=  data_project.paddr;
+    @(vif_apb.cb_master_apb);                       
+  	vif_apb.cb_master_apb.penable 	                        <=  1;
+    @(vif_apb.cb_master_apb iff vif_apb.cb_master_apb.pready);
+    data_project.prdata                                 =   vif_apb.cb_master_apb.prdata; 
+    vif_apb.cb_master_apb.penable 	                        <=  0;
+    vif_apb.cb_master_apb.psel 			                        <=  0;
+  endtask
+
+
+endclass

@@ -1,0 +1,38 @@
+// Module name: output_monitor
+// HDL        : UVM
+// Description: Passive monitor. After the initial reset release, samples the
+//              ALU result bus on every completed APB write transaction and
+//              publishes an output_item on the analysis port.
+class output_monitor extends uvm_monitor ;
+
+  `uvm_component_utils (output_monitor)
+
+  function new(string name, uvm_component parent);
+    super.new(name, parent);
+  endfunction
+
+  virtual output_interface vif_output;
+  uvm_analysis_port #(output_item) mon_analysis_port_output;
+
+  function void build_phase(uvm_phase phase);
+    super.build_phase (phase);
+    mon_analysis_port_output = new ("mon_analysis_port_output", this);
+    if(! uvm_config_db #(virtual output_interface) :: get (this , "", "vif_output", vif_output)) begin
+      `uvm_error (get_type_name (), "Not found")
+    end
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    output_item data_mon_passive = output_item::type_id::create ("data_mon_passive", this);
+    @(posedge vif_output.state);
+    @(negedge vif_output.reset_n);
+    @(posedge vif_output.reset_n);
+    forever begin
+      @(vif_output.cb_master_output iff vif_output.cb_master_output.psel && vif_output.cb_master_output.penable && vif_output.cb_master_output.pready && vif_output.cb_master_output.pwrite);
+        `uvm_info (get_type_name(), $sformatf ("Write Result= %d", vif_output.cb_master_output.result), UVM_NONE)
+      data_mon_passive.result  = vif_output.cb_master_output.result;
+      mon_analysis_port_output.write(data_mon_passive);
+    end
+  endtask
+
+endclass
